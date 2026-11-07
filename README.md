@@ -17,13 +17,14 @@ One record book holds **all your subjects/sections, one per tab**. Students see 
 | `Instructor.html` | Record Book (subjects + release switches), Class Records, Message & Email, Portal Settings |
 | `Student.html` | Email check → student number + name → Submit → subjects, grades, consultation booking |
 | `Styles.html` | Shared look: Beige / Royal Blue / Burgundy |
+| `Logo.html` | The Grade Portal logo (inline SVG) shown in the top bar |
 | `appsscript.json` | Manifest: time zone, permissions, web-app settings |
 
 ## Setup (about 10 minutes)
 
 1. Sign in with your **@rtu.edu.ph** Google account (the one that owns the record book) and go to <https://script.google.com>. Click **New project** and name it *Grade Portal*.
 2. Paste **Code.gs** into `Code.gs`.
-3. Click **＋ › HTML** to add **Instructor**, **Student**, and **Styles**. Leave off the `.html` because Apps Script adds it. Paste in each file's contents.
+3. Click **＋ › HTML** to add **Instructor**, **Student**, **Styles**, and **Logo**. Leave off the `.html` because Apps Script adds it. Paste in each file's contents.
 4. Under **Project Settings ⚙**, check **Show "appsscript.json" manifest file in editor**. Replace its contents with **appsscript.json**.
 5. Click **Deploy › New deployment › Web app** and set:
    - *Execute as:* **Me**

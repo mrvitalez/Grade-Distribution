@@ -16,6 +16,11 @@ const DOMAIN = 'rtu.edu.ph';
 // Logs now live in a separate "Grade Portal — Activity Log" spreadsheet (see getLogBook_).
 const LOG_TABS = ['Portal Log', 'Consultation Requests', 'Email Log'];
 const TZ = 'Asia/Manila';
+
+// Logo images hosted on GitHub Pages (docs/ folder). Used for the browser-tab icon and email header.
+const LOGO_BASE = 'https://mrvitalez.github.io/Grade-Distribution/';
+const FAVICON_URL = LOGO_BASE + 'favicon.png';
+const EMAIL_LOGO_URL = LOGO_BASE + 'logo.png';
 const CACHE_SECONDS = 120; // students see sheet edits within ~2 minutes
 
 /** Every setting the portal stores (Script Properties), with defaults. */
@@ -79,10 +84,12 @@ function doGet(e) {
     domain: DOMAIN
   });
 
-  return t.evaluate()
+  const out = t.evaluate()
     .setTitle(page === 'instructor' ? 'Grade Portal · Instructor' : 'Grade Portal · Student')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL); // allows embedding in Google Sites
+  try { out.setFaviconUrl(FAVICON_URL); } catch (err) { /* keep the default icon if the image is unavailable */ }
+  return out;
 }
 
 /** Used in HTML templates: <?!= include('Styles'); ?> */
@@ -783,8 +790,10 @@ function emailShell_(inner, heading) {
   return '<div style="font-family:Arial,Helvetica,sans-serif;background:#EFE4CF;padding:24px">' +
     '<div style="max-width:640px;margin:0 auto;background:#FFFFFF;border-radius:12px;overflow:hidden;border:1px solid #E3D8C3">' +
     '<div style="background:#1F3E9C;color:#EFE4CF;padding:18px 24px;border-bottom:4px solid #7A1F35">' +
-    '<div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;opacity:.85">Grade Portal</div>' +
-    '<div style="font-size:18px;font-weight:bold;margin-top:4px">' + esc_(heading) + '</div></div>' +
+    '<table cellpadding="0" cellspacing="0" style="border-collapse:collapse"><tr>' +
+    '<td style="padding-right:14px;vertical-align:middle"><img src="' + EMAIL_LOGO_URL + '" width="44" height="44" alt="Grade Portal" style="display:block;border-radius:10px"></td>' +
+    '<td style="vertical-align:middle;color:#EFE4CF"><div style="font-size:12px;letter-spacing:2px;text-transform:uppercase;opacity:.85">Grade Portal</div>' +
+    '<div style="font-size:18px;font-weight:bold;margin-top:4px">' + esc_(heading) + '</div></td></tr></table></div>' +
     '<div style="padding:24px;color:#1D2033;font-size:14px;line-height:1.6">' + inner + '</div>' +
     '<div style="background:#FAF6EE;color:#5E6170;font-size:11px;padding:12px 24px">This message was sent through the course Grade Portal.</div>' +
     '</div></div>';

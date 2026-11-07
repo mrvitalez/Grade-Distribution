@@ -6,6 +6,9 @@
   <title>Grade Portal</title>
   <meta name="description" content="Student Grade Portal: view your grades with your RTU institutional account.">
   <meta name="robots" content="noindex">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="icon" type="image/svg+xml" href="logo.svg">
+  <link rel="apple-touch-icon" href="favicon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
   <script>
@@ -25,6 +28,7 @@
     .card { width:min(440px,100%); background:#fff; border-radius:16px; overflow:hidden;
       box-shadow:0 10px 30px rgba(29,32,51,.1); text-align:center; }
     .top { background:var(--royal); color:var(--beige); padding:22px; border-bottom:5px solid var(--burgundy); }
+    .logo { display:block; margin:0 auto 10px; border-radius:16px; box-shadow:0 0 0 2px rgba(239,228,207,.55); }
     .seal { width:52px; height:52px; margin:0 auto 10px; border-radius:50%; background:var(--beige); color:var(--burgundy);
       border:3px solid var(--burgundy); display:grid; place-items:center; font:700 20px 'Playfair Display',serif; }
     .kicker { font-size:11px; letter-spacing:.18em; text-transform:uppercase; opacity:.85; }
@@ -43,7 +47,7 @@
 <body>
   <div class="card">
     <div class="top">
-      <div class="seal">G</div>
+      <img class="logo" src="logo.svg" alt="Grade Portal logo" width="64" height="64">
       <div class="kicker">Student Grade Portal</div>
       <h1>Grade Portal</h1>
     </div>
