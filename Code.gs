@@ -12,7 +12,10 @@
  */
 
 const DOMAIN = 'rtu.edu.ph';
+// Old versions wrote these tabs into the record book; they are ignored if present.
+// Logs now live in a separate "Grade Portal — Activity Log" spreadsheet (see getLogBook_).
 const LOG_TABS = ['Portal Log', 'Consultation Requests', 'Email Log'];
+const TZ = 'Asia/Manila';
 const CACHE_SECONDS = 120; // students see sheet edits within ~2 minutes
 
 /** Every setting the portal stores (Script Properties), with defaults. */
@@ -104,7 +107,8 @@ function getInstructorDashboard() {
     linked: !!s.sheetId,
     spreadsheetName: '',
     tabs: [],
-    error: ''
+    error: '',
+    logUrl: logBookUrl_()
   };
   if (!s.sheetId) return out;
 
@@ -112,6 +116,7 @@ function getInstructorDashboard() {
     const ss = SpreadsheetApp.openById(s.sheetId);
     out.spreadsheetName = ss.getName();
     const cfg = getTabConfig_(s);
+    const views = viewedMap_();
     ss.getSheets().forEach(function (sh) {
       const name = sh.getName();
       if (LOG_TABS.indexOf(name) >= 0) return;
@@ -125,6 +130,8 @@ function getInstructorDashboard() {
           row.section = t.section;
           row.instructor = t.instructor;
           row.stats = t.stats;
+          const v = views[name] || {};
+          row.stats.viewed = t.records.filter(function (r) { return v[norm_(r.studentNo)]; }).length;
         }
       } catch (err) { row.error = err.message; }
       out.tabs.push(row);
@@ -141,7 +148,36 @@ function getTabRecords(tabName) {
   const s = getSettings_();
   const t = readTab_(SpreadsheetApp.openById(s.sheetId), tabName, false);
   if (!t) throw new Error('"' + tabName + '" does not look like a class record (no "Student Number" header).');
+  const v = viewedMap_()[tabName] || {};
+  t.records.forEach(function (r) {
+    const x = v[norm_(r.studentNo)];
+    r.lastViewed = x ? Utilities.formatDate(new Date(x.last), TZ, 'MMM d, yyyy h:mm a') : '';
+    r.views = x ? x.count : 0;
+  });
   return t;
+}
+
+/** Recent portal activity (newest first) and consultation requests, for the Activity tab. */
+function getActivity() {
+  assertInstructor_();
+  const out = { logUrl: logBookUrl_(), visits: [], consultations: [] };
+  const ss = existingLogBook_();
+  if (!ss) return out;
+  const fmt = function (d) { return d instanceof Date ? Utilities.formatDate(d, TZ, 'MMM d, yyyy h:mm a') : String(d); };
+  const read = function (name, limit) {
+    const sh = ss.getSheetByName(name);
+    if (!sh || sh.getLastRow() < 2) return [];
+    const n = Math.min(limit, sh.getLastRow() - 1);
+    return sh.getRange(sh.getLastRow() - n + 1, 1, n, sh.getLastColumn()).getValues().reverse();
+  };
+  out.visits = read('Portal Log', 1000).map(function (r) {
+    return { time: fmt(r[0]), email: String(r[1]), studentNo: String(r[2]), name: String(r[3]), result: String(r[4]), tabs: String(r[5] || '') };
+  });
+  out.consultations = read('Consultation Requests', 300).map(function (r) {
+    return { time: fmt(r[0]), tab: String(r[1]), course: String(r[2]), studentNo: String(r[3]), name: String(r[4]),
+      email: String(r[5]), grade: String(r[6]), concern: String(r[8]) };
+  });
+  return out;
 }
 
 /** Link (or re-link) the Google Sheets record book. */
@@ -278,7 +314,7 @@ function sendGradeEmails(opts) {
   });
 
   try {
-    const sh = getOrCreateSheet_(ss, 'Email Log',
+    const sh = getOrCreateSheet_(getLogBook_(), 'Email Log',
       ['Timestamp', 'Subject Tab', 'Student Number', 'Name', 'Email', 'Status', 'Error']);
     if (log.length) sh.getRange(sh.getLastRow() + 1, 1, log.length, log[0].length).setValues(log);
   } catch (e) { /* logging is optional */ }
@@ -305,7 +341,7 @@ function getStudentGrades(form) {
   if (!instructor) {
     const local = studentLocalPart_(email);
     if (norm_(typed) !== norm_(local)) {
-      logAccess_(s, email, typed, typedName, 'Denied: student number does not match email');
+      logAccess_(email, typed, typedName, 'Denied: student number does not match email', '');
       throw new Error('The student number you entered does not match your institutional email (' + email +
         '). Please check it and try again.');
     }
@@ -343,13 +379,13 @@ function getStudentGrades(form) {
   });
 
   if (!subjects.length) {
-    logAccess_(s, email, typed, typedName, 'Not found in any released class');
+    logAccess_(email, typed, typedName, 'Not found in any released class', '');
     throw new Error('Your student number was not found in any class with released grades. ' +
       'If you think this is a mistake, please contact your instructor.');
   }
 
-  logAccess_(s, email, typed, typedName,
-    (instructor ? 'Instructor preview: ' : 'Viewed: ') + subjects.map(function (x) { return x.tab; }).join(', '));
+  logAccess_(email, typed, typedName, instructor ? 'Instructor preview' : 'Viewed',
+    subjects.map(function (x) { return x.tab; }).join(', '));
 
   return { preview: instructor, portalTitle: s.portalTitle, subjects: subjects };
 }
@@ -377,7 +413,7 @@ function logConsultation(form) {
 
   const concern = String(form.concern || '').trim().slice(0, 2000);
   try {
-    getOrCreateSheet_(ss, 'Consultation Requests',
+    getOrCreateSheet_(getLogBook_(), 'Consultation Requests',
       ['Timestamp', 'Subject Tab', 'Course', 'Student Number', 'Name', 'Email', 'Semestral Grade', 'Remarks', 'Concern', 'Status'])
       .appendRow([new Date(), t.tab, t.course, rec.studentNo, rec.name, email, rec.semestralGrade, rec.remarks, concern,
         'Opened booking page']);
@@ -807,18 +843,73 @@ function recipientFor_(rec) {
   return String(rec.studentNo).replace(/\s+/g, '').toLowerCase() + '@' + DOMAIN;
 }
 
-function logAccess_(s, email, typedNo, typedName, result) {
+function logAccess_(email, typedNo, typedName, result, tabs) {
   try {
-    getOrCreateSheet_(SpreadsheetApp.openById(s.sheetId), 'Portal Log',
-      ['Timestamp', 'Signed-in Email', 'Student Number Entered', 'Name Entered (Last | First | Middle)', 'Result'])
-      .appendRow([new Date(), email, typedNo, typedName, result]);
+    getOrCreateSheet_(getLogBook_(), 'Portal Log',
+      ['Timestamp', 'Signed-in Email', 'Student Number Entered', 'Name Entered (Last | First | Middle)', 'Result', 'Subjects Viewed'])
+      .appendRow([new Date(), email, typedNo, typedName, result, tabs]);
+    CacheService.getScriptCache().remove('viewedMap_n'); // invalidate the chunked cache
   } catch (e) { /* optional */ }
+}
+
+/**
+ * The portal's own log spreadsheet ("Grade Portal — Activity Log" in your Drive).
+ * Created on first use. The record book itself is NEVER written to.
+ */
+function getLogBook_() {
+  const ss = existingLogBook_();
+  if (ss) return ss;
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    const again = existingLogBook_();
+    if (again) return again;
+    const created = SpreadsheetApp.create('Grade Portal — Activity Log');
+    PropertiesService.getScriptProperties().setProperty('logSheetId', created.getId());
+    return created;
+  } finally { lock.releaseLock(); }
+}
+
+function existingLogBook_() {
+  const id = PropertiesService.getScriptProperties().getProperty('logSheetId');
+  if (!id) return null;
+  try { return SpreadsheetApp.openById(id); } catch (e) { return null; }
+}
+
+function logBookUrl_() { const ss = existingLogBook_(); return ss ? ss.getUrl() : ''; }
+
+/** { "<tab>": { "<normalized student no>": { last: ms, count: n } } } from the Portal Log. */
+function viewedMap_() {
+  const cache = CacheService.getScriptCache();
+  const hit = getCached_(cache, 'viewedMap');
+  if (hit) return hit;
+  const map = {};
+  const ss = existingLogBook_();
+  const sh = ss && ss.getSheetByName('Portal Log');
+  if (sh && sh.getLastRow() > 1) {
+    sh.getRange(2, 1, sh.getLastRow() - 1, 6).getValues().forEach(function (r) {
+      if (String(r[4]) !== 'Viewed' || !(r[0] instanceof Date)) return;
+      const no = norm_(r[2]), t = r[0].getTime();
+      String(r[5] || '').split(/\s*,\s*/).filter(String).forEach(function (tab) {
+        const m = map[tab] = map[tab] || {};
+        const x = m[no] = m[no] || { last: 0, count: 0 };
+        x.count++;
+        if (t > x.last) x.last = t;
+      });
+    });
+  }
+  putCached_(cache, 'viewedMap', map);
+  return map;
 }
 
 function getOrCreateSheet_(ss, name, headers) {
   let sh = ss.getSheetByName(name);
   if (!sh) {
-    sh = ss.insertSheet(name);
+    // A brand-new log spreadsheet has one empty "Sheet1": reuse it for the first log tab.
+    const blank = ss.getSheets().length === 1 && ss.getSheets()[0].getLastRow() === 0 && /^Sheet1$/.test(ss.getSheets()[0].getName());
+    sh = blank ? ss.getSheets()[0].setName(name) : ss.insertSheet(name);
+  }
+  if (sh.getLastRow() === 0) {
     sh.getRange(1, 1, 1, headers.length).setValues([headers])
       .setFontWeight('bold').setBackground('#1F3E9C').setFontColor('#EFE4CF');
     sh.setFrozenRows(1);

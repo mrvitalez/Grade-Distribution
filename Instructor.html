@@ -22,6 +22,10 @@
     .group { border: 1px solid var(--beige-200); border-radius: 10px; overflow: hidden; margin-bottom: 10px; }
     .group-h { background: var(--royal); color: var(--beige); padding: 6px 10px; font-weight: 600; font-size: 12px; }
     .kv .val .max { color: var(--muted); font-weight: 500; }
+    .g5 { grid-template-columns: repeat(5, minmax(0,1fr)); }
+    @media (max-width: 760px) { .g5 { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+    .seen { color: var(--ok); font-weight: 600; font-size: 13px; white-space: nowrap; }
+    .unseen { color: var(--muted); font-size: 13px; }
   </style>
 </head>
 <body>
@@ -46,7 +50,8 @@
       <button class="tab active" data-tab="book">1 · Record Book <span class="dot hidden" id="bookDot"></span></button>
       <button class="tab" data-tab="records">2 · Class Records</button>
       <button class="tab" data-tab="message">3 · Message &amp; Email</button>
-      <button class="tab" data-tab="settings">4 · Portal Settings</button>
+      <button class="tab" data-tab="activity">4 · Activity</button>
+      <button class="tab" data-tab="settings">5 · Portal Settings</button>
     </nav>
 
     <div id="loading" class="card loading-block"><span class="spin"></span> Reading your record book…</div>
@@ -86,7 +91,7 @@
           <table>
             <thead><tr>
               <th>Tab</th><th>Course · Section</th><th class="num">Students</th><th class="num">With grade</th>
-              <th class="num">Passed</th><th class="num">Failed</th><th class="center">Include</th><th class="center">Released</th><th></th>
+              <th class="num">Passed</th><th class="num">Failed</th><th class="num">Viewed</th><th class="center">Include</th><th class="center">Released</th><th></th>
             </tr></thead>
             <tbody id="tabsBody"></tbody>
           </table>
@@ -104,8 +109,9 @@
 
     <!-- ================= CLASS RECORDS ================= -->
     <section data-panel="records" class="hidden">
-      <div class="grid g4" style="margin-bottom:20px">
+      <div class="grid g5" style="margin-bottom:20px">
         <div class="stat"><div class="k">Students</div><div class="v" id="stTotal">0</div></div>
+        <div class="stat"><div class="k">Viewed grades</div><div class="v" id="stViewed">0</div></div>
         <div class="stat"><div class="k">Passed</div><div class="v" id="stPassed">0</div></div>
         <div class="stat fail"><div class="k">Failed</div><div class="v" id="stFailed">0</div></div>
         <div class="stat"><div class="k">No grade / Other</div><div class="v" id="stOther">0</div></div>
@@ -119,13 +125,15 @@
               <option value="failed">Failed only</option>
               <option value="passed">Passed only</option>
               <option value="other">No grade / Other</option>
+              <option value="viewed">Viewed their grades</option>
+              <option value="unviewed">Not yet viewed</option>
             </select>
             <input type="text" id="search" placeholder="Search name or number…" style="width:240px">
           </div>
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Student Number</th><th>Learner's Name</th><th class="num">Initial Grade</th><th class="num">Semestral Grade</th><th>Remarks</th></tr></thead>
+            <thead><tr><th>Student Number</th><th>Learner's Name</th><th class="num">Initial Grade</th><th class="num">Semestral Grade</th><th>Remarks</th><th>Last viewed</th></tr></thead>
             <tbody id="recBody"></tbody>
           </table>
         </div>
@@ -197,6 +205,49 @@
       </div>
     </section>
 
+    <!-- ================= ACTIVITY ================= -->
+    <section data-panel="activity" class="hidden">
+      <div class="card royal">
+        <div class="card-head">
+          <div>
+            <h2>Who viewed their grades</h2>
+            <p class="muted small">Every Submit on the Student Portal, newest first. Saved in a separate spreadsheet (“Grade Portal — Activity Log”), never in your record book.</p>
+          </div>
+          <div class="row">
+            <a class="btn ghost sm hidden" id="logLink" target="_blank" rel="noopener">Open log in Sheets ↗</a>
+            <button class="btn ghost sm" id="actRefresh">↻ Refresh</button>
+          </div>
+        </div>
+        <div class="row" style="margin-bottom:12px">
+          <select id="actFilter" style="width:auto">
+            <option value="Viewed">Viewed grades</option>
+            <option value="problems">Denied / Not found</option>
+            <option value="">All (except my previews)</option>
+          </select>
+          <select id="actSubject" style="width:auto"><option value="">All subjects</option></select>
+          <input type="text" id="actSearch" placeholder="Search number, name or email…" style="width:260px">
+          <span class="small muted" id="actCount"></span>
+        </div>
+        <div class="table-wrap" style="max-height:520px;overflow:auto">
+          <table>
+            <thead><tr><th>Date &amp; time</th><th>Student Number</th><th>Name entered</th><th>Signed-in email</th><th>Result</th><th>Subjects</th></tr></thead>
+            <tbody id="actBody"><tr><td colspan="6" class="muted" style="text-align:center;padding:24px">Open this tab to load activity.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Consultation requests</h2>
+        <p class="muted small">Students with Failed remarks who opened your booking page.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Date &amp; time</th><th>Subject</th><th>Student</th><th class="num">Grade</th><th>Concern</th></tr></thead>
+            <tbody id="conBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
     <!-- ================= SETTINGS ================= -->
     <section data-panel="settings" class="hidden">
       <div class="card royal">
@@ -222,7 +273,7 @@
             <div class="field" style="margin-top:10px">
               <input type="email" id="consultEmail" placeholder="Send to (blank = your email)">
             </div>
-            <div class="small" style="margin-top:6px">Google Calendar already notifies you of each booking. Every request is also saved in the “Consultation Requests” tab.</div>
+            <div class="small" style="margin-top:6px">Google Calendar already notifies you of each booking. Every request is also listed on the Activity tab.</div>
           </div>
 
           <div class="field">
@@ -300,6 +351,7 @@
     const needsSubject = name === 'records' || name === 'message';
     $('#subjectBar').classList.toggle('hidden', !needsSubject || !recordTabs().length);
     if (needsSubject) loadSubject($('#subjectSel').value);
+    if (name === 'activity' && !ACT) loadActivity();
   }
   $$('.tab').forEach(t => t.addEventListener('click', () => showTab(t.dataset.tab)));
 
@@ -343,13 +395,14 @@
     $('#tabsBody').innerHTML = D.tabs.map(t => {
       const e = Object.assign({ include: t.include, released: t.released }, tabEdits[t.name] || {});
       if (!t.isRecord) {
-        return `<tr><td>${esc(t.name)}</td><td colspan="8" class="muted small">${t.error ? '⚠ ' + esc(t.error) : 'Not a class record (no “STUDENT NUMBER” header). Ignored.'}</td></tr>`;
+        return `<tr><td>${esc(t.name)}</td><td colspan="9" class="muted small">${t.error ? '⚠ ' + esc(t.error) : 'Not a class record (no “STUDENT NUMBER” header). Ignored.'}</td></tr>`;
       }
       return `<tr>
         <td><b>${esc(t.name)}</b></td>
         <td><div class="course">${esc(t.course || '—')}</div><div class="sec">${esc(t.section || '')}</div></td>
         <td class="num">${t.stats.total}</td><td class="num">${t.stats.graded}</td>
         <td class="num">${t.stats.passed}</td><td class="num" style="color:var(--burgundy);font-weight:600">${t.stats.failed}</td>
+        <td class="num">${t.stats.viewed || 0}</td>
         <td class="center"><label class="switch sm"><input type="checkbox" data-tab="${esc(t.name)}" data-k="include" ${e.include ? 'checked' : ''}><span class="track"></span></label></td>
         <td class="center"><label class="switch sm"><input type="checkbox" data-tab="${esc(t.name)}" data-k="released" ${e.released ? 'checked' : ''} ${e.include ? '' : 'disabled'}><span class="track"></span></label></td>
         <td><button class="btn ghost sm" data-view="${esc(t.name)}">View</button></td>
@@ -410,7 +463,7 @@
 
   async function loadSubject(name) {
     if (!name) return;
-    $('#recBody').innerHTML = `<tr><td colspan="5" class="loading-block"><span class="spin"></span> Loading ${esc(name)}…</td></tr>`;
+    $('#recBody').innerHTML = `<tr><td colspan="6" class="loading-block"><span class="spin"></span> Loading ${esc(name)}…</td></tr>`;
     try {
       TAB = tabCache[name] || (tabCache[name] = await call('getTabRecords', name));
       if ($('#subjectSel').value !== name) return;
@@ -420,7 +473,7 @@
       $('#previewStudent').innerHTML = TAB.records.map(r => `<option value="${esc(r.studentNo)}">${esc(r.name)} (${esc(r.semestralGrade || '—')})</option>`).join('');
       if (activePanel === 'message') refreshPreview();
     } catch (err) {
-      $('#recBody').innerHTML = `<tr><td colspan="5">${alertBox('err', esc(errMsg(err)))}</td></tr>`;
+      $('#recBody').innerHTML = `<tr><td colspan="6">${alertBox('err', esc(errMsg(err)))}</td></tr>`;
     }
   }
 
@@ -431,18 +484,21 @@
     $('#stPassed').textContent = recs.filter(isPassed).length;
     $('#stFailed').textContent = recs.filter(r => r.failed).length;
     $('#stOther').textContent = recs.filter(r => !r.failed && !isPassed(r)).length;
+    $('#stViewed').textContent = recs.filter(r => r.views).length + ' / ' + recs.length;
 
     const q = $('#search').value.trim().toLowerCase();
     const f = $('#filterRemarks').value;
     const rows = recs.filter(r =>
       (!q || r.name.toLowerCase().includes(q) || r.studentNo.toLowerCase().includes(q)) &&
-      (!f || (f === 'failed' && r.failed) || (f === 'passed' && isPassed(r)) || (f === 'other' && !r.failed && !isPassed(r))));
+      (!f || (f === 'failed' && r.failed) || (f === 'passed' && isPassed(r)) || (f === 'other' && !r.failed && !isPassed(r)) ||
+       (f === 'viewed' && r.views) || (f === 'unviewed' && !r.views)));
     $('#recBody').innerHTML = rows.length ? rows.map(r => `
       <tr class="clickable" data-no="${esc(r.studentNo)}">
         <td>${esc(r.studentNo)}</td><td>${esc(r.name)}</td>
         <td class="num">${esc(r.initialGrade || '—')}</td><td class="num"><b>${esc(r.semestralGrade || '—')}</b></td>
         <td><span class="badge ${badgeClass(r)}">${esc(r.remarks || '—')}</span></td>
-      </tr>`).join('') : `<tr><td colspan="5" class="muted" style="text-align:center;padding:24px">No matching students.</td></tr>`;
+        <td>${r.views ? `<span class="seen" title="${r.views} view(s)">✓ ${esc(r.lastViewed)}</span>` : '<span class="unseen">Not yet</span>'}</td>
+      </tr>`).join('') : `<tr><td colspan="6" class="muted" style="text-align:center;padding:24px">No matching students.</td></tr>`;
 
     if (TAB) {
       $('#detectMeta').textContent = `${TAB.course} · ${TAB.section} · headers in row ${TAB.headerRow}` +
@@ -466,7 +522,8 @@
     if (!tr) return;
     const r = TAB.records.find(x => x.studentNo === tr.dataset.no);
     $('#dName').textContent = r.name;
-    $('#dNo').textContent = `Student No. ${r.studentNo} · ${TAB.tab} row ${r.row}`;
+    $('#dNo').textContent = `Student No. ${r.studentNo} · ${TAB.tab} row ${r.row} · ` +
+      (r.views ? `Viewed ${r.views}× (last: ${r.lastViewed})` : 'Has not viewed yet');
     $('#dBody').innerHTML = `
       <div class="grid g3" style="margin-bottom:14px">
         <div class="stat"><div class="k">Initial</div><div class="v">${esc(r.initialGrade || '—')}</div></div>
@@ -543,10 +600,48 @@
         $('#quota').textContent = r.remaining;
         $('#sendMsg').innerHTML = alertBox(r.errors.length ? 'warn' : 'ok',
           `<b>${r.sent} email(s) sent.</b>` + (r.errors.length ? `<br>${r.errors.length} failed:<br>${r.errors.map(esc).join('<br>')}` : '') +
-          '<br><span class="small">A log is in the “Email Log” tab of your record book.</span>');
+          '<br><span class="small">A log is saved in the “Grade Portal — Activity Log” spreadsheet (Activity tab › Open log).</span>');
       } catch (err) { $('#sendMsg').innerHTML = alertBox('err', esc(errMsg(err))); }
     });
   });
+
+  // ---------- Activity ----------
+  let ACT = null;
+  async function loadActivity() {
+    $('#actBody').innerHTML = '<tr><td colspan="6" class="loading-block"><span class="spin"></span> Loading activity…</td></tr>';
+    try {
+      ACT = await call('getActivity');
+      $('#logLink').classList.toggle('hidden', !ACT.logUrl);
+      if (ACT.logUrl) $('#logLink').href = ACT.logUrl;
+      $('#actSubject').innerHTML = '<option value="">All subjects</option>' +
+        recordTabs().map(t => `<option value="${esc(t.name)}">${esc(t.name)}</option>`).join('');
+      renderActivity();
+    } catch (e) { $('#actBody').innerHTML = `<tr><td colspan="6">${alertBox('err', esc(errMsg(e)))}</td></tr>`; }
+  }
+  function renderActivity() {
+    if (!ACT) return;
+    const f = $('#actFilter').value, sub = $('#actSubject').value, q = $('#actSearch').value.trim().toLowerCase();
+    const rows = ACT.visits.filter(v =>
+      v.result !== 'Instructor preview' && !/^Instructor preview/.test(v.result) &&
+      (!f || (f === 'Viewed' ? v.result === 'Viewed' : v.result !== 'Viewed')) &&
+      (!sub || v.tabs.split(/\s*,\s*/).includes(sub)) &&
+      (!q || (v.studentNo + ' ' + v.name + ' ' + v.email).toLowerCase().includes(q)));
+    $('#actCount').textContent = rows.length + ' record(s)';
+    $('#actBody').innerHTML = rows.length ? rows.map(v => `<tr>
+        <td style="white-space:nowrap">${esc(v.time)}</td><td>${esc(v.studentNo)}</td><td>${esc(v.name.replace(/ \| /g, ', ').replace(/^, |, $/g, ''))}</td>
+        <td class="small">${esc(v.email)}</td>
+        <td>${v.result === 'Viewed' ? '<span class="badge pass">Viewed</span>' : `<span class="badge fail" title="${esc(v.result)}">${esc(/Denied/.test(v.result) ? 'Denied' : /found/.test(v.result) ? 'Not found' : v.result)}</span>`}</td>
+        <td class="small">${esc(v.tabs || '—')}</td></tr>`).join('')
+      : '<tr><td colspan="6" class="muted" style="text-align:center;padding:24px">No activity yet.</td></tr>';
+    $('#conBody').innerHTML = ACT.consultations.length ? ACT.consultations.map(c => `<tr>
+        <td style="white-space:nowrap">${esc(c.time)}</td><td><b>${esc(c.tab)}</b><div class="small muted">${esc(c.course)}</div></td>
+        <td>${esc(c.name)}<div class="small muted">${esc(c.studentNo)} · ${esc(c.email)}</div></td>
+        <td class="num">${esc(c.grade)}</td><td class="small">${esc(c.concern || '—')}</td></tr>`).join('')
+      : '<tr><td colspan="5" class="muted" style="text-align:center;padding:24px">No consultation requests yet.</td></tr>';
+  }
+  ['#actFilter', '#actSubject'].forEach(id => $(id).addEventListener('change', renderActivity));
+  $('#actSearch').addEventListener('input', renderActivity);
+  $('#actRefresh').addEventListener('click', (e) => withBusy(e.currentTarget, 'Loading…', loadActivity));
 
   // ---------- Settings ----------
   function renderSettings() {
