@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Grade Portal</title>
+  <meta name="description" content="Student Grade Portal: view your grades with your RTU institutional account.">
+  <meta name="robots" content="noindex">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+  <script>
+    /* ===========================================================
+     *  PASTE YOUR APPS SCRIPT WEB APP URL HERE (ends with /exec)
+     * =========================================================== */
+    var PORTAL_URL = 'PASTE_YOUR_WEB_APP_URL_HERE';
+
+    var ready = /^https:\/\/script\.google\.com\/.+\/exec$/.test(PORTAL_URL);
+    if (ready) window.location.replace(PORTAL_URL);
+  </script>
+  <style>
+    :root { --beige:#EFE4CF; --royal:#1F3E9C; --royal-700:#172E76; --burgundy:#7A1F35; --ink:#1D2033; --muted:#5E6170; }
+    * { box-sizing: border-box; }
+    body { margin:0; min-height:100vh; display:grid; place-items:center; padding:16px;
+      background:var(--beige); color:var(--ink); font-family:'Inter',system-ui,sans-serif; }
+    .card { width:min(440px,100%); background:#fff; border-radius:16px; overflow:hidden;
+      box-shadow:0 10px 30px rgba(29,32,51,.1); text-align:center; }
+    .top { background:var(--royal); color:var(--beige); padding:22px; border-bottom:5px solid var(--burgundy); }
+    .seal { width:52px; height:52px; margin:0 auto 10px; border-radius:50%; background:var(--beige); color:var(--burgundy);
+      border:3px solid var(--burgundy); display:grid; place-items:center; font:700 20px 'Playfair Display',serif; }
+    .kicker { font-size:11px; letter-spacing:.18em; text-transform:uppercase; opacity:.85; }
+    h1 { font:700 24px 'Playfair Display',Georgia,serif; margin:4px 0 0; }
+    .body { padding:24px; }
+    p { color:var(--muted); font-size:14px; line-height:1.55; margin:0 0 18px; }
+    .btn { display:inline-block; background:var(--royal); color:var(--beige); text-decoration:none; font-weight:600;
+      padding:12px 22px; border-radius:10px; }
+    .btn:hover { background:var(--royal-700); }
+    .spin { width:22px; height:22px; margin:0 auto 14px; border:3px solid var(--royal); border-right-color:transparent;
+      border-radius:50%; animation:sp .7s linear infinite; }
+    @keyframes sp { to { transform:rotate(360deg); } }
+    .hidden { display:none; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="top">
+      <div class="seal">G</div>
+      <div class="kicker">Student Grade Portal</div>
+      <h1>Grade Portal</h1>
+    </div>
+    <div class="body">
+      <div id="go">
+        <div class="spin"></div>
+        <p>Opening the Grade Portal…<br>Sign in with your <b>studentnumber@rtu.edu.ph</b> account when asked.</p>
+        <a class="btn" id="link" href="#">Open Grade Portal</a>
+      </div>
+      <div id="notset" class="hidden">
+        <p>The Grade Portal link has not been set up yet. Please check back later or contact your instructor.</p>
+      </div>
+    </div>
+  </div>
+  <script>
+    if (ready) document.getElementById('link').href = PORTAL_URL;
+    else { document.getElementById('go').className = 'hidden'; document.getElementById('notset').className = ''; }
+  </script>
+</body>
+</html>

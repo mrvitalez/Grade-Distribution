@@ -75,6 +75,16 @@ The reader is built for your class-record template, and it works on any tab laid
 
 These tabs are created automatically and ignored as subjects: **Portal Log**, **Consultation Requests**, and **Email Log**.
 
+## Short link for students: `mrvitalez.github.io/Grade-Distribution`
+
+`docs/index.html` is a small GitHub Pages page that forwards students to the Apps Script portal. It holds no student data.
+
+1. **Set the portal URL:** on GitHub, open `docs/index.html`, click ✏️, and replace `PASTE_YOUR_WEB_APP_URL_HERE` with your web-app URL (the one ending in `/exec`). Commit.
+2. **Turn on Pages:** go to **Settings › Pages**, set *Source* to **Deploy from a branch**, and choose Branch **main** and folder **/docs**. Click **Save**.
+3. After a minute or two, share **https://mrvitalez.github.io/Grade-Distribution/** with your classes.
+
+If you create a **new deployment**, the `/exec` URL changes, so update step 1 again. Choosing a *new version* of the existing deployment keeps the same URL.
+
 ## Notes
 
 - **Email quota:** about 1,500 emails a day on Workspace accounts. Emails are sent one subject at a time.
