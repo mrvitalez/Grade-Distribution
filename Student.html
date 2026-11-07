@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <?!= include('Styles'); ?>
+  <style>
+    .hero-grade { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 14px; margin: 16px 0 20px; }
+    @media (max-width: 760px) { .hero-grade { grid-template-columns: 1fr; } }
+    .big { background: var(--royal); color: var(--beige); border-radius: 14px; padding: 18px 20px; }
+    .big .k { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; opacity: .85; }
+    .big .v { font-family: 'Playfair Display', serif; font-size: 44px; font-weight: 700; line-height: 1.1; }
+    .big .sub { font-size: 12px; opacity: .85; margin-top: 4px; }
+    .big.fail { background: var(--burgundy); }
+    .message-box { background: var(--beige-50); border-left: 4px solid var(--royal); border-radius: 8px; padding: 16px 18px; font-size: 14px; }
+    .message-box table { margin: 8px 0; }
+    .consult-banner { background: var(--burgundy-50); border: 1px solid #E6C3CC; border-radius: 12px; padding: 16px 18px; display: flex; gap: 14px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 20px; }
+
+    .subjects { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .subj { text-align: left; font: inherit; cursor: pointer; background: #fff; border: 1.5px solid var(--beige-200); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow); transition: border-color .15s, transform .05s; }
+    .subj:hover { border-color: var(--royal); }
+    .subj.active { border-color: var(--royal); box-shadow: 0 0 0 3px rgba(31,62,156,.18); }
+    .subj .c { font-weight: 700; color: var(--royal-700); line-height: 1.3; }
+    .subj .s { font-size: 12px; color: var(--muted); margin: 2px 0 10px; }
+    .subj .row { justify-content: space-between; }
+    .subj .g { font-family: 'Playfair Display', serif; font-size: 24px; font-weight: 700; color: var(--royal-700); }
+    .subj.failed .g { color: var(--burgundy); }
+
+    .group { border: 1px solid var(--beige-200); border-radius: 12px; overflow: hidden; margin-bottom: 12px; }
+    .group-h { background: var(--royal); color: var(--beige); padding: 8px 12px; font-weight: 600; font-size: 13px; letter-spacing: .03em; }
+    .group .kv { border: 0; border-radius: 0; }
+    .groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 14px; }
+    @media (max-width: 760px) { .groups { grid-template-columns: 1fr; } }
+    .kv .val .max { color: var(--muted); font-weight: 500; }
+    details.more summary { cursor: pointer; font-weight: 600; color: var(--royal); margin: 6px 0 12px; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="inner">
+      <div class="brand">
+        <div class="seal">G</div>
+        <div>
+          <div class="kicker">Student Grade Portal</div>
+          <div class="title" id="portalTitle"></div>
+        </div>
+      </div>
+      <div class="user-chip" id="userChip"></div>
+    </div>
+  </header>
+
+  <main class="wrap narrow-wrap" style="max-width:900px">
+    <!-- STEP 1: Verify -->
+    <section id="formView">
+      <div class="card royal">
+        <h1>View your grades</h1>
+        <p class="muted">Enter your student number exactly as it appears in your institutional email
+          (<b>studentnumber@<span class="dom"></span></b>), together with your full name.</p>
+
+        <div id="emailStatus"></div>
+
+        <form id="lookupForm" autocomplete="off" novalidate>
+          <div class="grid">
+            <div class="field">
+              <label for="studentNo">Student Number <span class="req">*</span></label>
+              <input type="text" id="studentNo" placeholder="e.g. 2026-101234" required>
+              <div class="hint">Must match your signed-in institutional email.</div>
+            </div>
+            <div class="grid g3">
+              <div class="field">
+                <label for="lastName">Last Name</label>
+                <input type="text" id="lastName" placeholder="Dela Cruz">
+              </div>
+              <div class="field">
+                <label for="firstName">First Name</label>
+                <input type="text" id="firstName" placeholder="Juan">
+              </div>
+              <div class="field">
+                <label for="middleName">Middle Name</label>
+                <input type="text" id="middleName" placeholder="Santos">
+              </div>
+            </div>
+          </div>
+          <div id="formError"></div>
+          <div class="row" style="margin-top:16px">
+            <button class="btn lg block" type="submit" id="submitBtn">Submit</button>
+          </div>
+        </form>
+      </div>
+      <p class="small muted" style="text-align:center">Your grades are shown only to the account that owns the matching student number.</p>
+    </section>
+
+    <!-- STEP 2: Results -->
+    <section id="resultView" class="hidden">
+      <div id="previewNote"></div>
+      <div class="row" style="justify-content:space-between;margin-bottom:12px">
+        <div>
+          <div class="small muted">Learner</div>
+          <h1 id="rName" style="margin:0"></h1>
+          <div class="muted" id="rNo"></div>
+        </div>
+        <button class="btn ghost sm" id="backBtn">&larr; Back</button>
+      </div>
+
+      <div id="subjectPicker">
+        <h3>Your subjects</h3>
+        <div class="subjects" id="subjects"></div>
+      </div>
+
+      <div class="card accent" id="detailCard">
+        <div class="card-head">
+          <div>
+            <h2 id="dCourse" style="margin:0"></h2>
+            <div class="muted small" id="dSection"></div>
+          </div>
+          <span class="badge" id="dBadge"></span>
+        </div>
+
+        <div class="hero-grade">
+          <div class="big" id="semBox">
+            <div class="k">Semestral Grade</div>
+            <div class="v" id="dSem"></div>
+            <div class="sub hidden" id="dAdj"></div>
+          </div>
+          <div class="stat"><div class="k">Initial Grade</div><div class="v" id="dInit"></div></div>
+          <div class="stat" id="remStat"><div class="k">Remarks</div><div class="v" id="dRem" style="font-size:22px"></div></div>
+        </div>
+
+        <div id="summaryWrap">
+          <h3>Summary of Grades</h3>
+          <div class="groups" id="dSummary"></div>
+        </div>
+
+        <details class="more" id="breakdownWrap" open>
+          <summary>Breakdown of Grades</summary>
+          <div class="groups" id="dBreakdown"></div>
+        </details>
+      </div>
+
+      <div id="consultWrap" class="hidden">
+        <div class="consult-banner">
+          <div>
+            <h3 style="color:var(--burgundy);margin:0 0 4px">Need to talk about this grade?</h3>
+            <div class="small" style="color:var(--burgundy-700)">Book a consultation during your instructor's consultation hours.</div>
+          </div>
+          <button class="btn burgundy" id="consultBtn">Request Consultation</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Message from your instructor</h2>
+        <div class="message-box" id="dMessage"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">Grade Portal · <span id="footTitle"></span></footer>
+
+  <!-- Consultation modal -->
+  <div class="modal-bg hidden" id="consultModal">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cmTitle">
+      <div class="mh">
+        <div>
+          <h2 id="cmTitle" style="color:var(--burgundy)">Request a Consultation</h2>
+          <p class="small muted" id="cmSubject" style="margin:0"></p>
+        </div>
+        <button class="x" data-close aria-label="Close">&times;</button>
+      </div>
+      <div class="mb">
+        <div class="alert info" id="cmNote"></div>
+        <ol class="small" style="padding-left:18px;margin:12px 0">
+          <li>Optionally, tell your instructor what you want to discuss.</li>
+          <li>Click <b>Choose a consultation slot</b>. Your instructor's booking page opens in a new tab.</li>
+          <li>Pick an <b>open slot</b>. Only times within the consultation schedule can be booked.</li>
+        </ol>
+        <div class="field">
+          <label for="cmConcern">Concern <span class="muted">(optional)</span></label>
+          <textarea id="cmConcern" style="min-height:110px" placeholder="Briefly describe what you would like to discuss."></textarea>
+        </div>
+        <div id="cmError"></div>
+        <div class="row end" style="margin-top:14px">
+          <button class="btn ghost" data-close>Cancel</button>
+          <a class="btn burgundy" id="cmBook" target="_blank" rel="noopener">Choose a consultation slot ↗</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const BOOT = <?!= bootJson ?>;
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const errMsg = (e) => String((e && e.message) || e).replace(/^(Exception|Error):\s*/, '');
+  const call = (fn, ...args) => new Promise((res, rej) =>
+    google.script.run.withSuccessHandler(res).withFailureHandler(rej)[fn](...args));
+  const alertBox = (type, html) => `<div class="alert ${type}">${html}</div>`;
+  const badgeClass = (r) => r.failed ? 'fail' : /pass/i.test(r.remarks) ? 'pass' : 'other';
+  let DATA = null, current = null;
+
+  function init() {
+    $('#portalTitle').textContent = BOOT.portalTitle;
+    $('#footTitle').textContent = BOOT.portalTitle;
+    document.querySelectorAll('.dom').forEach(el => el.textContent = BOOT.domain);
+    $('#userChip').textContent = BOOT.email ? BOOT.email : 'Not signed in';
+
+    const email = BOOT.email || '';
+    if (BOOT.isInstructor) {
+      $('#emailStatus').innerHTML = alertBox('info', '<b>Instructor preview.</b> Enter any student number to see exactly what that student sees (including unreleased subjects).');
+    } else if (!email) {
+      $('#emailStatus').innerHTML = alertBox('err', `We could not detect your email. Please sign in with your institutional account (<b>studentnumber@${esc(BOOT.domain)}</b>) and reload this page.`);
+      lockForm();
+    } else if (!email.endsWith('@' + BOOT.domain)) {
+      $('#emailStatus').innerHTML = alertBox('err', `You are signed in as <b>${esc(email)}</b>. Please switch to your institutional account (<b>studentnumber@${esc(BOOT.domain)}</b>).`);
+      lockForm();
+    } else {
+      $('#emailStatus').innerHTML = alertBox('ok', `Signed in as <b>${esc(email)}</b>`);
+    }
+  }
+  function lockForm() { document.querySelectorAll('#lookupForm input, #lookupForm button').forEach(el => el.disabled = true); }
+
+  $('#lookupForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    $('#formError').innerHTML = '';
+    const form = {
+      studentNo: $('#studentNo').value.trim(),
+      lastName: $('#lastName').value.trim(),
+      firstName: $('#firstName').value.trim(),
+      middleName: $('#middleName').value.trim()
+    };
+    if (!form.studentNo) { $('#formError').innerHTML = alertBox('err', 'Please enter your student number.'); $('#studentNo').focus(); return; }
+    const btn = $('#submitBtn');
+    btn.disabled = true; btn.innerHTML = '<span class="spin"></span> Checking…';
+    try {
+      DATA = await call('getStudentGrades', form);
+      showResults();
+    } catch (err) {
+      $('#formError').innerHTML = alertBox('err', esc(errMsg(err)));
+    } finally {
+      btn.disabled = false; btn.textContent = 'Submit';
+    }
+  });
+
+  function showResults() {
+    const first = DATA.subjects[0].record;
+    $('#previewNote').innerHTML = DATA.preview ? alertBox('info', '<b>Instructor preview</b>: this is what the student sees. Subjects marked "not released" are hidden from students.') : '';
+    $('#rName').textContent = first.name;
+    $('#rNo').textContent = 'Student No. ' + first.studentNo;
+
+    $('#subjectPicker').classList.toggle('hidden', DATA.subjects.length < 2);
+    $('#subjects').innerHTML = DATA.subjects.map((s, i) => `
+      <button class="subj ${s.record.failed ? 'failed' : ''}" data-i="${i}">
+        <div class="c">${esc(s.course)}</div>
+        <div class="s">${esc(s.section || '')}${DATA.preview && !s.released ? ' · <b style="color:var(--burgundy)">not released</b>' : ''}</div>
+        <div class="row"><span class="g">${esc(s.record.semestralGrade || '—')}</span>
+        <span class="badge ${badgeClass(s.record)}">${esc(s.record.remarks || '—')}</span></div>
+      </button>`).join('');
+
+    $('#formView').classList.add('hidden');
+    $('#resultView').classList.remove('hidden');
+    showSubject(0);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  $('#subjects').addEventListener('click', (e) => {
+    const b = e.target.closest('.subj'); if (!b) return;
+    showSubject(Number(b.dataset.i));
+    $('#detailCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  function groupsHtml(groups) {
+    return groups.map(g => `
+      <div class="group">
+        <div class="group-h">${esc(g.title)}</div>
+        <div class="kv">${g.items.map(it => `<div>${esc(it.label)}</div>
+          <div class="val">${esc(it.value || '—')}${it.max && it.value && !isNaN(it.value) ? ` <span class="max">/ ${esc(it.max)}</span>` : ''}</div>`).join('')}</div>
+      </div>`).join('');
+  }
+
+  function showSubject(i) {
+    current = DATA.subjects[i];
+    const r = current.record;
+    document.querySelectorAll('.subj').forEach(b => b.classList.toggle('active', Number(b.dataset.i) === i));
+    $('#dCourse').textContent = current.course;
+    $('#dSection').textContent = [current.section, current.instructor].filter(Boolean).join(' · ');
+    $('#dSem').textContent = r.semestralGrade || '—';
+    $('#dAdj').classList.toggle('hidden', !r.adjustedGrade);
+    $('#dAdj').textContent = r.adjustedGrade ? 'Adjusted Grade: ' + r.adjustedGrade : '';
+    $('#dInit').textContent = r.initialGrade || '—';
+    $('#dRem').textContent = r.remarks || '—';
+    const badge = $('#dBadge');
+    badge.textContent = r.remarks || 'No remarks';
+    badge.className = 'badge ' + badgeClass(r);
+    $('#semBox').classList.toggle('fail', r.failed);
+    $('#remStat').classList.toggle('fail', r.failed);
+
+    $('#summaryWrap').classList.toggle('hidden', !r.summary.length);
+    $('#dSummary').innerHTML = groupsHtml(r.summary);
+    $('#breakdownWrap').classList.toggle('hidden', !r.breakdown.length);
+    $('#dBreakdown').innerHTML = groupsHtml(r.breakdown);
+
+    $('#dMessage').innerHTML = current.messageHtml; // escaped on the server
+    $('#consultWrap').classList.toggle('hidden', !current.consult);
+    $('#consultWrap').dataset.done = '';
+  }
+
+  $('#backBtn').addEventListener('click', () => {
+    $('#resultView').classList.add('hidden');
+    $('#formView').classList.remove('hidden');
+  });
+
+  // ---------- Consultation (booking page only offers the instructor's consultation hours) ----------
+  $('#consultBtn').addEventListener('click', () => {
+    if (!current || !current.consult) return;
+    $('#cmSubject').textContent = current.course + (current.section ? ' · ' + current.section : '');
+    $('#cmNote').textContent = current.consult.note || 'Consultations are held only during the instructor\'s consultation hours.';
+    $('#cmBook').href = current.consult.link;
+    $('#cmError').innerHTML = '';
+    $('#consultModal').classList.remove('hidden');
+  });
+  document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => $('#consultModal').classList.add('hidden')));
+  $('#consultModal').addEventListener('click', (e) => { if (e.target.id === 'consultModal') $('#consultModal').classList.add('hidden'); });
+
+  // The link itself opens the booking page (a real link, so pop-up blockers allow it); we log in the background.
+  $('#cmBook').addEventListener('click', () => {
+    call('logConsultation', { studentNo: current.record.studentNo, tab: current.tab, concern: $('#cmConcern').value.trim() })
+      .catch(() => {});
+    setTimeout(() => {
+      $('#consultModal').classList.add('hidden');
+      $('#consultWrap').querySelector('.consult-banner').insertAdjacentHTML('afterend',
+        alertBox('ok', 'The booking page opened in a new tab. Choose an open slot to confirm your consultation. If it did not open, <a href="' +
+          esc(current.consult.link) + '" target="_blank" rel="noopener">click here</a>.'));
+    }, 300);
+  });
+
+  init();
+</script>
+</body>
+</html>

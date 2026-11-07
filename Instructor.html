@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <meta charset="utf-8">
+  <?!= include('Styles'); ?>
+  <style>
+    .linkbox { display: flex; gap: 8px; }
+    .linkbox input { flex: 1; font-size: 13px; }
+    .msg-layout { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 960px) { .msg-layout { grid-template-columns: 1fr; } }
+    .send-bar { background: var(--beige-50); border: 1px solid var(--beige-200); border-radius: 12px; padding: 14px; margin-top: 14px; }
+    .subject-bar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; background: #fff; border: 1px solid var(--beige-200); border-radius: 12px; padding: 10px 14px; margin-bottom: 20px; box-shadow: var(--shadow); }
+    .subject-bar label { font-weight: 600; color: var(--royal-700); font-size: 13px; }
+    .subject-bar select { width: auto; min-width: 280px; }
+    td .course { font-weight: 600; color: var(--royal-700); }
+    td .sec { font-size: 12px; color: var(--muted); }
+    .center { text-align: center; }
+    .switch.sm .track { width: 38px; height: 22px; }
+    .switch.sm .track::after { width: 16px; height: 16px; }
+    .switch.sm input:checked + .track::after { left: 19px; }
+    .group { border: 1px solid var(--beige-200); border-radius: 10px; overflow: hidden; margin-bottom: 10px; }
+    .group-h { background: var(--royal); color: var(--beige); padding: 6px 10px; font-weight: 600; font-size: 12px; }
+    .kv .val .max { color: var(--muted); font-weight: 500; }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="inner">
+      <div class="brand">
+        <div class="seal">G</div>
+        <div>
+          <div class="kicker">Grade Portal · Instructor</div>
+          <div class="title" id="portalTitle"></div>
+        </div>
+      </div>
+      <div class="row">
+        <span class="user-chip" id="userChip"></span>
+        <a class="btn sm burgundy" id="studentLink" target="_blank" rel="noopener">Open Student Portal</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-tab="book">1 · Record Book <span class="dot hidden" id="bookDot"></span></button>
+      <button class="tab" data-tab="records">2 · Class Records</button>
+      <button class="tab" data-tab="message">3 · Message &amp; Email</button>
+      <button class="tab" data-tab="settings">4 · Portal Settings</button>
+    </nav>
+
+    <div id="loading" class="card loading-block"><span class="spin"></span> Reading your record book…</div>
+
+    <!-- ================= RECORD BOOK ================= -->
+    <section data-panel="book" class="hidden">
+      <div class="card royal">
+        <div class="card-head">
+          <div>
+            <h2>Link your Record Book</h2>
+            <p class="muted small">Paste the link of your Google Sheets record book. Every tab with a “STUDENT NUMBER” header is read as one subject/section. The portal reads it live.</p>
+          </div>
+          <a class="btn ghost sm hidden" id="openSheet" target="_blank" rel="noopener">Open in Sheets ↗</a>
+        </div>
+        <div class="field">
+          <label for="sheetUrl">Google Sheets link</label>
+          <div class="linkbox">
+            <input type="url" id="sheetUrl" placeholder="https://docs.google.com/spreadsheets/d/…/edit">
+            <button class="btn" id="linkBtn">Link</button>
+          </div>
+        </div>
+        <div id="bookMsg"></div>
+      </div>
+
+      <div class="card hidden" id="tabsCard">
+        <div class="card-head">
+          <div>
+            <h2>Subjects found</h2>
+            <p class="muted small">Students only see subjects that are <b>Released</b>. Keep a subject unreleased until its grades are final.</p>
+          </div>
+          <div class="row">
+            <button class="btn ghost sm" id="refreshBtn">↻ Re-read sheet</button>
+            <button class="btn" id="saveTabsBtn">Save</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr>
+              <th>Tab</th><th>Course · Section</th><th class="num">Students</th><th class="num">With grade</th>
+              <th class="num">Passed</th><th class="num">Failed</th><th class="center">Include</th><th class="center">Released</th><th></th>
+            </tr></thead>
+            <tbody id="tabsBody"></tbody>
+          </table>
+        </div>
+        <p class="small muted" style="margin-top:8px"><b>Include</b> = part of the portal. <b>Released</b> = students can view it. Unsaved changes are kept until you press <b>Save</b>.</p>
+      </div>
+    </section>
+
+    <!-- shared subject selector for Records + Message -->
+    <div class="subject-bar hidden" id="subjectBar">
+      <label for="subjectSel">Subject</label>
+      <select id="subjectSel"></select>
+      <span class="small muted" id="subjectInfo"></span>
+    </div>
+
+    <!-- ================= CLASS RECORDS ================= -->
+    <section data-panel="records" class="hidden">
+      <div class="grid g4" style="margin-bottom:20px">
+        <div class="stat"><div class="k">Students</div><div class="v" id="stTotal">0</div></div>
+        <div class="stat"><div class="k">Passed</div><div class="v" id="stPassed">0</div></div>
+        <div class="stat fail"><div class="k">Failed</div><div class="v" id="stFailed">0</div></div>
+        <div class="stat"><div class="k">No grade / Other</div><div class="v" id="stOther">0</div></div>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <h2>Students</h2>
+          <div class="row">
+            <select id="filterRemarks" style="width:auto">
+              <option value="">All remarks</option>
+              <option value="failed">Failed only</option>
+              <option value="passed">Passed only</option>
+              <option value="other">No grade / Other</option>
+            </select>
+            <input type="text" id="search" placeholder="Search name or number…" style="width:240px">
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Student Number</th><th>Learner's Name</th><th class="num">Initial Grade</th><th class="num">Semestral Grade</th><th>Remarks</th></tr></thead>
+            <tbody id="recBody"></tbody>
+          </table>
+        </div>
+        <p class="small muted" style="margin-top:8px">Click a student to see exactly what they will see.</p>
+      </div>
+      <div class="card">
+        <h2>What the portal reads from this tab</h2>
+        <p class="muted small" id="detectMeta"></p>
+        <div class="grid g2">
+          <div><h3>Summary of grades</h3><div id="summaryChips" class="small"></div></div>
+          <div><h3>Breakdown of grades</h3><div id="breakdownChips" class="small"></div></div>
+        </div>
+        <p class="small muted" style="margin-top:10px">Columns with no scores yet (e.g. E5–E11) are hidden automatically and appear once you enter scores.</p>
+      </div>
+    </section>
+
+    <!-- ================= MESSAGE ================= -->
+    <section data-panel="message" class="hidden">
+      <div class="msg-layout">
+        <div class="card royal">
+          <h2>Message / Email</h2>
+          <p class="muted small">One message for all subjects. It is shown on each student's result page and used when you email grades. Click a placeholder to insert it.</p>
+          <div id="phChips" style="margin-bottom:12px"></div>
+          <div class="grid">
+            <div class="field">
+              <label for="msgSubject">Email subject</label>
+              <input type="text" id="msgSubject">
+            </div>
+            <div class="field">
+              <label for="msgBody">Message</label>
+              <textarea id="msgBody"></textarea>
+            </div>
+          </div>
+          <div class="row" style="margin-top:12px">
+            <button class="btn" id="saveMsgBtn">Save Message</button>
+            <button class="btn ghost" id="testBtn">Send test to me</button>
+            <span class="small muted" id="saveState"></span>
+          </div>
+
+          <div class="send-bar">
+            <h3 style="margin-bottom:8px">Email grades for the selected subject</h3>
+            <div class="row">
+              <select id="sendScope" style="width:auto">
+                <option value="all">All students with a grade</option>
+                <option value="failed">Failed only</option>
+                <option value="passed">All except Failed</option>
+              </select>
+              <button class="btn burgundy" id="sendBtn">Send Emails</button>
+              <span class="small muted">Quota left today: <b id="quota">—</b></span>
+            </div>
+            <p class="small muted" style="margin:8px 0 0">Recipients: <i>studentnumber@<span class="dom"></span></i> (or the sheet's Email column, if you add one).</p>
+            <div id="sendMsg"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-head">
+            <h2>Live preview</h2>
+            <select id="previewStudent" style="width:auto;max-width:260px"></select>
+          </div>
+          <div class="preview-mail">
+            <div class="ph">
+              <div class="small" style="opacity:.8">To: <span id="pvTo">—</span></div>
+              <div style="font-weight:700" id="pvSubject">—</div>
+            </div>
+            <div class="pb" id="pvBody"><span class="muted">Choose a subject to preview.</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= SETTINGS ================= -->
+    <section data-panel="settings" class="hidden">
+      <div class="card royal">
+        <h2>Portal Settings</h2>
+        <div class="grid">
+          <div class="grid g2">
+            <div class="field"><label for="portalTitleIn">Portal title</label><input type="text" id="portalTitleIn"></div>
+            <div class="field"><label for="instructorName">Instructor name (signature)</label><input type="text" id="instructorName" placeholder="Blank = use “INSTRUCTOR:” from the record book"></div>
+          </div>
+
+          <h3 style="margin-top:6px">Consultation (students with “Failed” remarks only)</h3>
+          <div class="field">
+            <label for="consultLink">Consultation booking page</label>
+            <div class="linkbox">
+              <input type="url" id="consultLink" placeholder="https://calendar.app.google/…">
+              <a class="btn ghost sm" id="testConsult" target="_blank" rel="noopener">Test ↗</a>
+            </div>
+            <div class="hint">Your Google Calendar appointment schedule. Students can only book the open slots in your consultation hours.</div>
+          </div>
+          <div class="field"><label for="consultNote">Note shown to students</label><input type="text" id="consultNote"></div>
+          <div class="alert info" style="margin:0">
+            <label class="switch"><input type="checkbox" id="consultNotify"><span class="track"></span> Also email me when a student opens the booking page</label>
+            <div class="field" style="margin-top:10px">
+              <input type="email" id="consultEmail" placeholder="Send to (blank = your email)">
+            </div>
+            <div class="small" style="margin-top:6px">Google Calendar already notifies you of each booking. Every request is also saved in the “Consultation Requests” tab.</div>
+          </div>
+
+          <div class="field">
+            <label for="instructorEmails">Co-instructors with access <span class="muted">(optional)</span></label>
+            <input type="text" id="instructorEmails" placeholder="name@rtu.edu.ph, other@rtu.edu.ph">
+          </div>
+        </div>
+        <div class="row" style="margin-top:14px"><button class="btn" id="saveSettingsBtn">Save Settings</button></div>
+      </div>
+
+      <div class="card">
+        <h2>Share links</h2>
+        <div class="field">
+          <label>Student portal (share this with all your classes)</label>
+          <div class="linkbox"><input type="text" id="studentUrl" readonly><button class="btn sm" data-copy="studentUrl">Copy</button></div>
+        </div>
+        <div class="field" style="margin-top:12px">
+          <label>Instructor page (keep private)</label>
+          <div class="linkbox"><input type="text" id="instructorUrl" readonly><button class="btn sm ghost" data-copy="instructorUrl">Copy</button></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">Grade Portal · Instructor view</footer>
+
+  <!-- Student detail modal -->
+  <div class="modal-bg hidden" id="detailModal">
+    <div class="modal">
+      <div class="mh">
+        <div><h2 id="dName" style="margin:0"></h2><div class="muted small" id="dNo"></div></div>
+        <button class="x" data-close>&times;</button>
+      </div>
+      <div class="mb" id="dBody"></div>
+    </div>
+  </div>
+
+<script>
+  const BOOT = <?!= bootJson ?>;
+  const $ = (s) => document.querySelector(s);
+  const $$ = (s) => Array.from(document.querySelectorAll(s));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const errMsg = (e) => String((e && e.message) || e).replace(/^(Exception|Error):\s*/, '');
+  const call = (fn, ...args) => new Promise((res, rej) =>
+    google.script.run.withSuccessHandler(res).withFailureHandler(rej)[fn](...args));
+  const alertBox = (t, h) => `<div class="alert ${t}">${h}</div>`;
+  const isPassed = r => /pass/i.test(r.remarks);
+  const badgeClass = r => r.failed ? 'fail' : isPassed(r) ? 'pass' : 'other';
+
+  let D = null;              // dashboard
+  let TAB = null;            // records of the selected subject
+  const tabCache = {};
+  let tabEdits = {};         // unsaved include/release switches
+  let dirty = false;
+  let activePanel = 'book';
+
+  function toast(msg, type) {
+    const t = document.createElement('div');
+    t.className = 'toast ' + (type || '');
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 3500);
+  }
+  async function withBusy(btn, label, fn) {
+    const old = btn.innerHTML;
+    btn.disabled = true; btn.innerHTML = `<span class="spin"></span> ${label}`;
+    try { return await fn(); } finally { btn.disabled = false; btn.innerHTML = old; }
+  }
+
+  // ---------- Panels ----------
+  function showTab(name) {
+    activePanel = name;
+    $$('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+    $$('[data-panel]').forEach(p => p.classList.toggle('hidden', p.dataset.panel !== name));
+    const needsSubject = name === 'records' || name === 'message';
+    $('#subjectBar').classList.toggle('hidden', !needsSubject || !recordTabs().length);
+    if (needsSubject) loadSubject($('#subjectSel').value);
+  }
+  $$('.tab').forEach(t => t.addEventListener('click', () => showTab(t.dataset.tab)));
+
+  // ---------- Load + render ----------
+  async function load() {
+    try {
+      D = await call('getInstructorDashboard');
+      render();
+      $('#loading').classList.add('hidden');
+      showTab(activePanel);
+    } catch (e) {
+      $('#loading').innerHTML = alertBox('err', esc(errMsg(e)));
+    }
+  }
+  const recordTabs = () => (D && D.tabs || []).filter(t => t.isRecord);
+
+  function render() {
+    const s = D.settings;
+    $('#portalTitle').textContent = s.portalTitle;
+    $('#userChip').textContent = BOOT.email;
+    $('#studentLink').href = D.studentUrl;
+    $$('.dom').forEach(el => el.textContent = BOOT.domain);
+    renderBook(); renderSubjectSel(); renderMessage(); renderSettings();
+  }
+
+  function renderBook() {
+    const s = D.settings;
+    $('#sheetUrl').value = s.sheetUrl;
+    $('#openSheet').classList.toggle('hidden', !D.linked);
+    if (D.linked) $('#openSheet').href = s.sheetUrl;
+    $('#linkBtn').textContent = D.linked ? 'Re-link' : 'Link';
+    $('#bookDot').classList.toggle('hidden', D.linked && !D.error);
+
+    if (!D.linked) { $('#bookMsg').innerHTML = alertBox('info', 'No record book linked yet.'); $('#tabsCard').classList.add('hidden'); return; }
+    if (D.error) { $('#bookMsg').innerHTML = alertBox('err', esc(D.error)); $('#tabsCard').classList.add('hidden'); return; }
+
+    const recs = recordTabs();
+    const total = recs.reduce((a, t) => a + t.stats.total, 0);
+    $('#bookMsg').innerHTML = alertBox('ok', `Linked to <b>${esc(D.spreadsheetName)}</b>: ${recs.length} subject tab(s), ${total} student rows.`);
+    $('#tabsCard').classList.remove('hidden');
+    $('#tabsBody').innerHTML = D.tabs.map(t => {
+      const e = Object.assign({ include: t.include, released: t.released }, tabEdits[t.name] || {});
+      if (!t.isRecord) {
+        return `<tr><td>${esc(t.name)}</td><td colspan="8" class="muted small">${t.error ? '⚠ ' + esc(t.error) : 'Not a class record (no “STUDENT NUMBER” header). Ignored.'}</td></tr>`;
+      }
+      return `<tr>
+        <td><b>${esc(t.name)}</b></td>
+        <td><div class="course">${esc(t.course || '—')}</div><div class="sec">${esc(t.section || '')}</div></td>
+        <td class="num">${t.stats.total}</td><td class="num">${t.stats.graded}</td>
+        <td class="num">${t.stats.passed}</td><td class="num" style="color:var(--burgundy);font-weight:600">${t.stats.failed}</td>
+        <td class="center"><label class="switch sm"><input type="checkbox" data-tab="${esc(t.name)}" data-k="include" ${e.include ? 'checked' : ''}><span class="track"></span></label></td>
+        <td class="center"><label class="switch sm"><input type="checkbox" data-tab="${esc(t.name)}" data-k="released" ${e.released ? 'checked' : ''} ${e.include ? '' : 'disabled'}><span class="track"></span></label></td>
+        <td><button class="btn ghost sm" data-view="${esc(t.name)}">View</button></td>
+      </tr>`;
+    }).join('');
+  }
+
+  $('#tabsBody').addEventListener('change', (e) => {
+    const cb = e.target.closest('input[data-tab]'); if (!cb) return;
+    const t = D.tabs.find(x => x.name === cb.dataset.tab);
+    const cur = Object.assign({ include: t.include, released: t.released }, tabEdits[t.name] || {});
+    cur[cb.dataset.k] = cb.checked;
+    if (!cur.include) cur.released = false;
+    if (cb.dataset.k === 'released' && cb.checked && t.stats.failed === t.stats.graded && t.stats.graded > 0) {
+      if (!confirm(`Every student in ${t.name} currently has a failing grade (no exams recorded yet?). Release anyway?`)) { cb.checked = false; return; }
+    }
+    tabEdits[t.name] = cur;
+    renderBook();
+    $('#saveTabsBtn').textContent = 'Save changes •';
+  });
+  $('#tabsBody').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-view]'); if (!b) return;
+    $('#subjectSel').value = b.dataset.view;
+    showTab('records');
+  });
+  $('#saveTabsBtn').addEventListener('click', (e) => withBusy(e.currentTarget, 'Saving…', async () => {
+    const cfg = {};
+    D.tabs.filter(t => t.isRecord).forEach(t => { cfg[t.name] = Object.assign({ include: t.include, released: t.released }, tabEdits[t.name] || {}); });
+    try {
+      D = await call('saveTabs', cfg);
+      tabEdits = {}; render(); toast('Subjects saved.', 'ok');
+      $('#saveTabsBtn').textContent = 'Save';
+    } catch (err) { toast(errMsg(err), 'err'); }
+  }));
+  $('#refreshBtn').addEventListener('click', (e) => withBusy(e.currentTarget, 'Reading…', async () => {
+    Object.keys(tabCache).forEach(k => delete tabCache[k]);
+    D = await call('getInstructorDashboard'); render(); toast('Record book re-read.', 'ok');
+  }));
+
+  $('#linkBtn').addEventListener('click', (e) => withBusy(e.currentTarget, 'Reading all tabs…', async () => {
+    try {
+      D = await call('linkRecordBook', { sheetUrl: $('#sheetUrl').value });
+      Object.keys(tabCache).forEach(k => delete tabCache[k]);
+      tabEdits = {}; render();
+      toast(D.error ? 'Linked, but there is a problem reading it.' : 'Record book linked.', D.error ? 'err' : 'ok');
+    } catch (err) { $('#bookMsg').innerHTML = alertBox('err', esc(errMsg(err))); }
+  }));
+
+  // ---------- Subject selector ----------
+  function renderSubjectSel() {
+    const prev = $('#subjectSel').value;
+    const recs = recordTabs();
+    $('#subjectSel').innerHTML = recs.map(t =>
+      `<option value="${esc(t.name)}">${esc(t.name)} · ${esc(t.course || '')}${t.released ? '' : ' (not released)'}</option>`).join('');
+    if (recs.some(t => t.name === prev)) $('#subjectSel').value = prev;
+  }
+  $('#subjectSel').addEventListener('change', () => loadSubject($('#subjectSel').value));
+
+  async function loadSubject(name) {
+    if (!name) return;
+    $('#recBody').innerHTML = `<tr><td colspan="5" class="loading-block"><span class="spin"></span> Loading ${esc(name)}…</td></tr>`;
+    try {
+      TAB = tabCache[name] || (tabCache[name] = await call('getTabRecords', name));
+      if ($('#subjectSel').value !== name) return;
+      const t = D.tabs.find(x => x.name === name);
+      $('#subjectInfo').textContent = [TAB.section, t && t.released ? 'Released to students' : 'Not released'].filter(Boolean).join(' · ');
+      renderRecords();
+      $('#previewStudent').innerHTML = TAB.records.map(r => `<option value="${esc(r.studentNo)}">${esc(r.name)} (${esc(r.semestralGrade || '—')})</option>`).join('');
+      if (activePanel === 'message') refreshPreview();
+    } catch (err) {
+      $('#recBody').innerHTML = `<tr><td colspan="5">${alertBox('err', esc(errMsg(err)))}</td></tr>`;
+    }
+  }
+
+  // ---------- Records ----------
+  function renderRecords() {
+    const recs = TAB ? TAB.records : [];
+    $('#stTotal').textContent = recs.length;
+    $('#stPassed').textContent = recs.filter(isPassed).length;
+    $('#stFailed').textContent = recs.filter(r => r.failed).length;
+    $('#stOther').textContent = recs.filter(r => !r.failed && !isPassed(r)).length;
+
+    const q = $('#search').value.trim().toLowerCase();
+    const f = $('#filterRemarks').value;
+    const rows = recs.filter(r =>
+      (!q || r.name.toLowerCase().includes(q) || r.studentNo.toLowerCase().includes(q)) &&
+      (!f || (f === 'failed' && r.failed) || (f === 'passed' && isPassed(r)) || (f === 'other' && !r.failed && !isPassed(r))));
+    $('#recBody').innerHTML = rows.length ? rows.map(r => `
+      <tr class="clickable" data-no="${esc(r.studentNo)}">
+        <td>${esc(r.studentNo)}</td><td>${esc(r.name)}</td>
+        <td class="num">${esc(r.initialGrade || '—')}</td><td class="num"><b>${esc(r.semestralGrade || '—')}</b></td>
+        <td><span class="badge ${badgeClass(r)}">${esc(r.remarks || '—')}</span></td>
+      </tr>`).join('') : `<tr><td colspan="5" class="muted" style="text-align:center;padding:24px">No matching students.</td></tr>`;
+
+    if (TAB) {
+      $('#detectMeta').textContent = `${TAB.course} · ${TAB.section} · headers in row ${TAB.headerRow}` +
+        (TAB.scoresRow ? `, highest possible scores in row ${TAB.scoresRow}` : '') + `, students from row ${TAB.firstDataRow}.`;
+      const chips = (groups, cls) => groups.length ? groups.map(g =>
+        `<div style="margin-bottom:6px"><b class="small">${esc(g.title)}</b><br>${g.labels.map(l => `<span class="chip ${cls}">${esc(l)}</span>`).join('')}</div>`).join('') : '<span class="muted">None</span>';
+      $('#summaryChips').innerHTML = chips(TAB.summaryGroups, 'royal');
+      $('#breakdownChips').innerHTML = chips(TAB.breakdownGroups, '');
+    }
+  }
+  $('#search').addEventListener('input', renderRecords);
+  $('#filterRemarks').addEventListener('change', renderRecords);
+
+  function groupsHtml(groups) {
+    if (!groups.length) return '<p class="muted small">None</p>';
+    return groups.map(g => `<div class="group"><div class="group-h">${esc(g.title)}</div><div class="kv">${g.items.map(it =>
+      `<div>${esc(it.label)}</div><div class="val">${esc(it.value || '—')}${it.max && it.value && !isNaN(it.value) ? ` <span class="max">/ ${esc(it.max)}</span>` : ''}</div>`).join('')}</div></div>`).join('');
+  }
+  $('#recBody').addEventListener('click', (e) => {
+    const tr = e.target.closest('tr[data-no]');
+    if (!tr) return;
+    const r = TAB.records.find(x => x.studentNo === tr.dataset.no);
+    $('#dName').textContent = r.name;
+    $('#dNo').textContent = `Student No. ${r.studentNo} · ${TAB.tab} row ${r.row}`;
+    $('#dBody').innerHTML = `
+      <div class="grid g3" style="margin-bottom:14px">
+        <div class="stat"><div class="k">Initial</div><div class="v">${esc(r.initialGrade || '—')}</div></div>
+        <div class="stat ${r.failed ? 'fail' : ''}"><div class="k">Semestral</div><div class="v">${esc(r.semestralGrade || '—')}</div></div>
+        <div class="stat ${r.failed ? 'fail' : ''}"><div class="k">Remarks</div><div class="v" style="font-size:18px">${esc(r.remarks || '—')}</div></div>
+      </div>
+      ${r.adjustedGrade ? alertBox('info', 'Adjusted Grade: <b>' + esc(r.adjustedGrade) + '</b> (remarks are based on this)') : ''}
+      <h3>Summary</h3>${groupsHtml(r.summary)}
+      <h3 style="margin-top:14px">Breakdown</h3>${groupsHtml(r.breakdown)}`;
+    $('#detailModal').classList.remove('hidden');
+  });
+  $$('[data-close]').forEach(b => b.addEventListener('click', () => b.closest('.modal-bg').classList.add('hidden')));
+  $('#detailModal').addEventListener('click', e => { if (e.target.id === 'detailModal') e.target.classList.add('hidden'); });
+
+  // ---------- Message ----------
+  const PH = ['name', 'studentNo', 'course', 'section', 'initialGrade', 'semestralGrade', 'remarks', 'breakdown', 'instructor', 'portalLink'];
+  $('#phChips').innerHTML = PH.map(p => `<span class="chip click" data-ph="${p}">{{${p}}}</span>`).join('');
+  $('#phChips').addEventListener('click', (e) => {
+    const p = e.target.dataset.ph; if (!p) return;
+    const ta = $('#msgBody'), tok = `{{${p}}}`;
+    const a = ta.selectionStart, b = ta.selectionEnd;
+    ta.value = ta.value.slice(0, a) + tok + ta.value.slice(b);
+    ta.focus(); ta.selectionStart = ta.selectionEnd = a + tok.length;
+    markDirty();
+  });
+
+  function renderMessage() {
+    if (!dirty) {
+      $('#msgSubject').value = D.settings.msgSubject;
+      $('#msgBody').value = D.settings.msgBody;
+    }
+    $('#quota').textContent = D.quota;
+  }
+  function markDirty() { dirty = true; $('#saveState').textContent = 'Unsaved changes'; schedulePreview(); }
+  $('#msgSubject').addEventListener('input', markDirty);
+  $('#msgBody').addEventListener('input', markDirty);
+  $('#previewStudent').addEventListener('change', refreshPreview);
+
+  let pvTimer = null;
+  function schedulePreview() { clearTimeout(pvTimer); pvTimer = setTimeout(refreshPreview, 600); }
+  async function refreshPreview() {
+    const tab = $('#subjectSel').value;
+    if (!tab || !TAB || !TAB.records.length) return;
+    try {
+      const p = await call('previewMessage', tab, $('#previewStudent').value, $('#msgSubject').value, $('#msgBody').value);
+      $('#pvTo').textContent = p.to;
+      $('#pvSubject').textContent = p.subject;
+      $('#pvBody').innerHTML = p.html;
+    } catch (e) { $('#pvBody').innerHTML = alertBox('err', esc(errMsg(e))); }
+  }
+
+  $('#saveMsgBtn').addEventListener('click', (e) => withBusy(e.currentTarget, 'Saving…', async () => {
+    try {
+      await call('saveMessage', { msgSubject: $('#msgSubject').value, msgBody: $('#msgBody').value });
+      D.settings.msgSubject = $('#msgSubject').value; D.settings.msgBody = $('#msgBody').value;
+      dirty = false; $('#saveState').textContent = 'Saved ✓'; toast('Message saved.', 'ok');
+    } catch (err) { toast(errMsg(err), 'err'); }
+  }));
+  $('#testBtn').addEventListener('click', (e) => withBusy(e.currentTarget, 'Sending…', async () => {
+    try {
+      const r = await call('sendTestEmail', $('#subjectSel').value, $('#msgSubject').value, $('#msgBody').value);
+      $('#quota').textContent = r.quota; toast('Test email sent to ' + r.to, 'ok');
+    } catch (err) { toast(errMsg(err), 'err'); }
+  }));
+  $('#sendBtn').addEventListener('click', (e) => {
+    if (!TAB) { toast('Choose a subject first.', 'err'); return; }
+    const scope = $('#sendScope').value;
+    const recs = TAB.records.filter(r => r.semestralGrade && (scope === 'all' || (scope === 'failed' ? r.failed : !r.failed)));
+    if (!confirm(`Send grade emails for ${TAB.tab} (${TAB.course}) to ${recs.length} student(s)? This cannot be undone.`)) return;
+    withBusy(e.currentTarget, 'Sending…', async () => {
+      try {
+        const r = await call('sendGradeEmails', { tab: TAB.tab, scope, subject: $('#msgSubject').value, body: $('#msgBody').value });
+        dirty = false; $('#saveState').textContent = 'Saved ✓';
+        $('#quota').textContent = r.remaining;
+        $('#sendMsg').innerHTML = alertBox(r.errors.length ? 'warn' : 'ok',
+          `<b>${r.sent} email(s) sent.</b>` + (r.errors.length ? `<br>${r.errors.length} failed:<br>${r.errors.map(esc).join('<br>')}` : '') +
+          '<br><span class="small">A log is in the “Email Log” tab of your record book.</span>');
+      } catch (err) { $('#sendMsg').innerHTML = alertBox('err', esc(errMsg(err))); }
+    });
+  });
+
+  // ---------- Settings ----------
+  function renderSettings() {
+    const s = D.settings;
+    $('#portalTitleIn').value = s.portalTitle;
+    $('#instructorName').value = s.instructorName;
+    $('#consultLink').value = s.consultLink;
+    $('#testConsult').href = s.consultLink || '#';
+    $('#consultNote').value = s.consultNote;
+    $('#consultNotify').checked = s.consultNotify === 'true';
+    $('#consultEmail').value = s.consultEmail;
+    $('#instructorEmails').value = s.instructorEmails;
+    $('#studentUrl').value = D.studentUrl;
+    $('#instructorUrl').value = D.instructorUrl;
+  }
+  $('#consultLink').addEventListener('input', () => $('#testConsult').href = $('#consultLink').value || '#');
+  $('#saveSettingsBtn').addEventListener('click', (e) => withBusy(e.currentTarget, 'Saving…', async () => {
+    try {
+      D = await call('savePortalSettings', {
+        portalTitle: $('#portalTitleIn').value, instructorName: $('#instructorName').value,
+        consultLink: $('#consultLink').value, consultNote: $('#consultNote').value,
+        consultNotify: $('#consultNotify').checked, consultEmail: $('#consultEmail').value,
+        instructorEmails: $('#instructorEmails').value
+      });
+      render(); toast('Settings saved.', 'ok');
+    } catch (err) { toast(errMsg(err), 'err'); }
+  }));
+  $$('[data-copy]').forEach(b => b.addEventListener('click', () => {
+    const inp = $('#' + b.dataset.copy); inp.select();
+    (navigator.clipboard ? navigator.clipboard.writeText(inp.value) : Promise.resolve(document.execCommand('copy')))
+      .then(() => toast('Link copied.', 'ok'));
+  }));
+
+  load();
+</script>
+</body>
+</html>
