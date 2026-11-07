@@ -19,7 +19,8 @@ const TZ = 'Asia/Manila';
 
 // Logo images hosted on GitHub Pages (docs/ folder). Used for the browser-tab icon and email header.
 const LOGO_BASE = 'https://mrvitalez.github.io/Grade-Distribution/';
-const FAVICON_URL = LOGO_BASE + 'favicon.png';
+const FAVICON_URL = LOGO_BASE + 'favicon.png';                         // student site
+const FAVICON_INSTRUCTOR_URL = LOGO_BASE + 'favicon-instructor.png';   // instructor site
 const EMAIL_LOGO_URL = LOGO_BASE + 'logo.png';
 const CACHE_SECONDS = 120; // students see sheet edits within ~2 minutes
 
@@ -88,7 +89,7 @@ function doGet(e) {
     .setTitle(page === 'instructor' ? 'Grade Portal · Instructor' : 'Grade Portal · Student')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL); // allows embedding in Google Sites
-  try { out.setFaviconUrl(FAVICON_URL); } catch (err) { /* keep the default icon if the image is unavailable */ }
+  try { out.setFaviconUrl(page === 'instructor' ? FAVICON_INSTRUCTOR_URL : FAVICON_URL); } catch (err) { /* keep the default icon if the image is unavailable */ }
   return out;
 }
 

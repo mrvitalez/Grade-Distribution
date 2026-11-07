@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Grade Portal Instructor">
+  <title>Grade Portal · Instructor</title>
+  <rect width="128" height="128" rx="30" fill="#7A1F35"/>
+  <rect x="7" y="7" width="114" height="114" rx="24" fill="none" stroke="#EFE4CF" stroke-opacity=".35" stroke-width="2"/>
+  <!-- record book (closed, with grade lines) -->
+  <rect x="26" y="26" width="58" height="76" rx="6" fill="#EFE4CF"/>
+  <rect x="26" y="26" width="12" height="76" rx="6" fill="#E3D3B1"/>
+  <path d="M38 26 V102" stroke="#7A1F35" stroke-opacity=".25" stroke-width="2"/>
+  <path d="M46 42 H74 M46 54 H74 M46 66 H66 M46 78 H62" stroke="#1F3E9C" stroke-opacity=".45" stroke-width="4" stroke-linecap="round"/>
+  <!-- pencil -->
+  <g transform="rotate(40 82 76)">
+    <rect x="74" y="34" width="16" height="56" rx="3" fill="#1F3E9C" stroke="#EFE4CF" stroke-width="3"/>
+    <rect x="74" y="34" width="16" height="10" rx="3" fill="#EFE4CF"/>
+    <path d="M74 90 L82 106 L90 90 Z" fill="#E3D3B1" stroke="#EFE4CF" stroke-width="3" stroke-linejoin="round"/>
+    <path d="M79.5 101 L82 106 L84.5 101 Z" fill="#1D2033"/>
+  </g>
+</svg>
